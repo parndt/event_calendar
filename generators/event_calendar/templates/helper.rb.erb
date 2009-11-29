@@ -17,7 +17,7 @@ module <%= view_name.classify %>Helper
 
   def event_calendar
     calendar event_calendar_opts do |event|
-      %(<a href="/events/#{event.id}" title="#{h(event.name)}">#{h(event.name)}</a>)
+      %(<a href="/events/#{event.id}" title="#{h(event.title)}">#{h(event.title)}</a>)
     end
   end
 end

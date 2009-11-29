@@ -109,7 +109,7 @@ Some helper methods are created, but you could put this in the view. The key is 
 
     def event_calendar
       calendar event_calendar_options do |event|
-        %(<a href="/events/#{event.id}" title="#{h(event.name)}">#{h(event.name)}</a>)
+        %(<a href="/events/#{event.id}" title="#{h(event.title)}">#{h(event.title)}</a>)
       end
     end
   end

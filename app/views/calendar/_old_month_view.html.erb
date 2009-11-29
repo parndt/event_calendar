@@ -1,0 +1,119 @@
+<%
+  first = Date.civil(options[:year], options[:month], 1)
+  last = Date.civil(options[:year], options[:month], -1)
+
+  start = options[:start]
+  event_strips = options[:event_strips]
+  event_width = options[:event_width]
+  event_height = options[:event_height]
+  min_height = options[:min_height]
+  event_margin = options[:event_margin]
+
+  first_weekday = options[:first_day_of_week]
+  last_weekday = options[:first_day_of_week]
+
+  day_names = Date::DAYNAMES.dup
+  first_weekday.times do
+    day_names.push(day_names.shift)
+  end
+%>
+<table class='<%= options[:table_class] %>' width='<%= event_width * 7 %>' border='0' cellspacing='0' cellpadding='0'>
+  <thead>
+    <tr>
+      <% if options[:previous_month_text] or options[:next_month_text] %>
+        <th colspan="2"><%= options[:previous_month_text] %></th>
+        <% colspan=3
+      else
+        colspan=7
+      end
+      %>
+      <th colspan="<%= colspan %>" class="<%= options[:month_name_class] %>"><%= options[:month_name_text] %></th>
+      <%= "<th colspan='2'>#{options[:next_month_text]}</th>" if options[:next_month_text] %>
+    </tr>
+    <tr class="<%= options[:day_name_class] %>">
+      <%
+      day_names.each do |d|
+        unless d[options[:abbrev]].eql? d %>
+          <th scope="col"><span title="<%= d %>"><%= d[options[:abbrev]] %></span></th>
+      <% else %>
+          <th scope="col"><%= d[options[:abbrev]]%></th>
+      <% end
+      end
+      %>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <%#
+        other month days, before current month
+      %>
+      <% beginning_of_week(first, first_weekday).upto(first - 1) do |d| %>
+        <td class='<%= "#{options[:other_month_class]}#{ " weekendDay" if weekend?(d)}#{ " beginning_of_week" if d.wday == first_weekday}"%>'>
+          <%= d.day %>
+          <%= "<span class='hidden'>#{Date::MONTHNAMES[d.month]}</span>" if options[:accessible] %>
+        </td>
+      <% end unless first.wday == first_weekday %>
+    <%
+      start_row = beginning_of_week(first, first_weekday)
+      last_row = start_row
+      first.upto(last) do |cur|
+        cell_text, cell_attrs = nil#block.call(cur)
+        cell_text ||= cur.mday
+        cell_attrs ||= {:class => options[:day_class]}
+        cell_attrs[:class] += " weekendDay" if [0, 6].include?(cur.wday)
+        cell_attrs[:class] += " beginning_of_week" if cur.wday == first_weekday
+        cell_attrs[:class] += " today" if (cur == Date.today) and options[:show_today]
+        cell_attrs[:style] = "width:#{event_width-2}px;" # subtract 2 for the borders
+        cell_attrs = cell_attrs.map {|k, v| %(#{k}="#{v}") }.join(" ")
+    %>
+    <td <%= cell_attrs %>>
+      <% if options[:link_to_day_action] %>
+        <%= day_link(cell_text, cur, options[:link_to_day_action]) %>
+      <% else %>
+        <%= cell_text %>
+      <% end %>
+    </td>
+<%
+      if cur.wday == last_weekday
+        # calendar rows events
+        content = calendar_row(event_strips,
+                                    event_width,
+                                    event_height,
+                                    event_margin,
+                                    start_row,
+                                    last_row..cur,
+                                    options[:use_javascript],
+                                    &block)
+%>
+  </tr>
+  <%= event_row(content, min_height, event_height, event_margin) %>
+  <%= "<tr>" unless cur == last %>
+  <% last_row = cur + 1
+      end
+    end
+%>
+<%
+    # other month days, after current month, unless this month ended evenly on the last day of the week
+    if last+1 != beginning_of_week(last+1, first_weekday)
+      (last + 1).upto(beginning_of_week(last + 7, first_weekday) - 1) do |d| %>
+        <td class='<%= "#{options[:other_month_class]}#{ " weekendDay" if weekend?(d)}#{ " beginning_of_week" if d.wday == first_weekday}" %>' style="width: <%= event_width-2 %>px;">
+          <%= d.day %>
+          <%= "<span class='hidden'>#{Date::MONTHNAMES[d.mon]}</span>" if options[:accessible] %>
+        </td>
+<%  end unless last.wday == last_weekday
+
+      # last calendar rows events
+      content = calendar_row(event_strips,
+                              event_width,
+                              event_height,
+                              event_margin,
+                              start_row,
+                              last_row..(beginning_of_week(last + 7, first_weekday) - 1),
+                              options[:use_javascript],
+                              &block)
+%>
+    </tr>
+    <%= event_row(content, min_height, event_height, event_margin) %>
+<% end %>
+  </tbody>
+</table>

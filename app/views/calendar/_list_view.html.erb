@@ -1,0 +1,18 @@
+<h2>Upcoming Events</h2>
+<ul id='ec-list-view'>
+  <% @events.each do |event_container| %>
+    <li class='ec-list-day'>
+      <h2><%= (event_group = event_container.last).first.start_at.strftime("%d %B %Y") %></h2>
+      <ul>
+        <% event_group.each do |event| %>
+          <li>
+            <%= event.start_at.strftime("%I:%M %p") %> to <%= event.end_at.strftime("%I:%M %p") %>
+            <%=
+              block.call(event) # additional html supplied to helper
+            %>
+          </li>
+        <% end %>
+      </ul>
+    </li>
+  <% end %>
+</ul>

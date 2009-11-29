@@ -1,6 +1,6 @@
 module EventCalendar
   module CalendarHelper
- 
+
     # Returns an HTML calendar which can show multiple, overlapping events across calendar days and rows.
     # Customize using CSS, the below options, and by passing in a code block.
     #
@@ -26,7 +26,7 @@ module EventCalendar
     # :event_margin => 1 # Spacing of the event rows
     # :event_padding_top => 1 # Padding on the top of the event rows (increase to move text down)
     # :use_javascript => true # Outputs HTML with inline javascript so events spanning multiple days will be highlighted.
-    #     If this option is false, cleaner HTML will be output, but events spanning multiple days will 
+    #     If this option is false, cleaner HTML will be output, but events spanning multiple days will
     #     not be highlighted correctly on hover, so it is only really useful if you know your calendar
     #     will only have single-day events. Defaults to true.
     # :link_to_day_action => false # If controller action is passed,
@@ -38,7 +38,7 @@ module EventCalendar
     #
     def calendar(options = {}, &block)
       block ||= Proc.new {|d| nil}
- 
+
       defaults = {
         :year => Time.zone.now.year,
         :month => Time.zone.now.month,
@@ -49,200 +49,42 @@ module EventCalendar
         :previous_month_text => nil,
         :next_month_text => nil,
         :event_strips => [],
-        
+
         # it would be nice to have these in the CSS file
         # but they are needed to perform height calculations
         :width => nil,
-        :height => 500, 
+        :height => 500,
         :day_names_height => 18,
         :day_nums_height => 18,
         :event_height => 18,
         :event_margin => 1,
         :event_padding_top => 1,
-        
+
         :use_javascript => true,
-        :link_to_day_action => false
+        :link_to_day_action => false,
+        :calendar_view => "month"
       }
       options = defaults.merge options
-    
+
+      # create the day names array [Sunday, Monday, etc...]
+      @day_names = Date::DAYNAMES.dup
+      options[:first_day_of_week].times do
+        @day_names.push(day_names.shift)
+      end
+
       # default month name for the given number
       options[:month_name_text] ||= Date::MONTHNAMES[options[:month]]
-      
-      # make the height calculations
-      # tricky since multiple events in a day could force an increase in the set height
-      height = options[:day_names_height]
-      row_heights = cal_row_heights(options)
-      row_heights.each do |row_height|
-        height += row_height
-      end
-      
-      # the first and last days of this calendar month
-      first = Date.civil(options[:year], options[:month], 1)
-      last = Date.civil(options[:year], options[:month], -1)
-      
-      # create the day names array [Sunday, Monday, etc...]
-      day_names = Date::DAYNAMES.dup
-      options[:first_day_of_week].times do
-        day_names.push(day_names.shift)
-      end
- 
-      # Build the HTML string
-      cal = ""
-      
-      # outer calendar container
-      cal << %(<div class="ec-calendar")
-      cal << %(style="width: #{options[:width]}px;") if options[:width]
-      cal << %(>)
-      
-      # table header, including the monthname and links to prev & next month
-      cal << %(<table class="ec-calendar-header" cellpadding="0" cellspacing="0">)
-      cal << %(<thead><tr>)
-      if options[:previous_month_text] or options[:next_month_text]
-        cal << %(<th colspan="2" class="ec-month-nav">#{options[:previous_month_text]}</th>)
-        colspan = 3
-      else
-        colspan = 7
-      end
-      cal << %(<th colspan="#{colspan}" class="ec-month-name">#{options[:month_name_text]}</th>)
-      if options[:next_month_text]
-        cal << %(<th colspan="2" class="ec-month-nav">#{options[:next_month_text]}</th>)
-      end
-      cal << %(</tr></thead></table>)
-      
-      # body container (holds day names and the calendar rows)
-      cal << %(<div class="ec-body" style="height: #{height}px;">)
-      
-      # day names 
-      cal << %(<table class="ec-day-names" style="height: #{options[:day_names_height]}px;" cellpadding="0" cellspacing="0">)
-      cal << %(<tbody><tr>)
-      day_names.each do |day_name|
-        cal << %(<th class="ec-day-name" title="#{day_name}">#{day_name.mb_chars[options[:abbrev]]}</th>)
-      end
-      cal << %(</tr></tbody></table>)
-      
-      # container for all the calendar rows
-      cal << %(<div class="ec-rows" style="top: #{options[:day_names_height]}px; )
-      cal << %(height: #{height - options[:day_names_height]}px;">)
-      
-      # initialize loop variables
-      first_day_of_week = beginning_of_week(first, options[:first_day_of_week])
-      last_day_of_week = end_of_week(first, options[:first_day_of_week])
-      last_day_of_cal = end_of_week(last, options[:first_day_of_week])
-      row_num = 0
-      top = 0
-      
-      # go through a week at a time, until we reach the end of the month
-      while(last_day_of_week <= last_day_of_cal)
-        cal << %(<div class="ec-row" style="top: #{top}px; height: #{row_heights[row_num]}px;">)
-        top += row_heights[row_num]
-        
-        # this weeks background table
-        cal << %(<table class="ec-row-bg" cellpadding="0" cellspacing="0">)
-        cal << %(<tbody><tr>)
-        first_day_of_week.upto(first_day_of_week+6) do |day|
-          today_class = (day == Date.today) ? "ec-today-bg" : ""
-          cal << %(<td class="ec-day-bg #{today_class}">&nbsp;</td>)
-        end
-        cal << %(</tr></tbody></table>)
-        
-        # calendar row
-        cal << %(<table class="ec-row-table" cellpadding="0" cellspacing="0">)
-        cal << %(<tbody>)
-        
-        # day numbers row
-        cal << %(<tr>)
-        first_day_of_week.upto(last_day_of_week) do |day|
-          cal << %(<td class="ec-day-header )
-          cal << %(ec-today-header ) if options[:show_today] and (day == Date.today)
-          cal << %(ec-other-month-header ) if (day < first) || (day > last)
-          cal << %(ec-weekend-day-header) if weekend?(day)
-          cal << %(" style="height: #{options[:day_nums_height]}px;">)
-          if options[:link_to_day_action]
-            cal << day_link(day.day, day, options[:link_to_day_action])
-          else
-            cal << %(#{day.day})
-          end
-          cal << %(</td>)
-        end
-        cal << %(</tr>)
-        
-        # event rows for this day
-        # for each event strip, create a new table row
-        options[:event_strips].each do |strip|
-          cal << %(<tr>)
-          # go through through the strip, for the entries that correspond to the days of this week
-          strip[row_num*7, 7].each_with_index do |event, index|
-            day = first_day_of_week + index
-            
-            if event
-              # get the dates of this event that fit into this week
-              dates = event.clip_range(first_day_of_week, last_day_of_week)
-              # if the event (after it has been clipped) starts on this date,
-              # then create a new cell that spans the number of days
-              if dates[0] == day.to_date
-                
-                cal << %(<td class="ec-event-cell" colspan="#{(dates[1]-dates[0]).to_i + 1}" )
-                cal << %(style="padding-top: #{options[:event_margin]}px;">)
-                cal << %(<div class="ec-event event_#{event.id}" )
-                cal << %(style="background-color: #{event.color}; )
-                cal << %(padding-top: #{options[:event_padding_top]}px; )
-                cal << %(height: #{options[:event_height] - options[:event_padding_top]}px;" )
-                if options[:use_javascript]
-                  cal << %(event_id="#{event.id}" color="#{event.color}" )
-                  cal << %(onmouseover="select_event(this, true);" onmouseout="select_event(this, false);" )
-                end
-                cal << %(>)
-                
-                # add a left arrow if event is clipped at the beginning
-                if event.start_at.to_date < dates[0]
-                  cal << %(<div class="ec-left-arrow"></div>)
-                end
-                # add a right arrow if event is clipped at the end
-                if event.end_at.to_date > dates[1]
-                  cal << %(<div class="ec-right-arrow"></div>)
-                end
-                
-                # add the additional html that was passed as a block to this helper
-                cal << block.call(event)
-                
-                cal << %(</div></td>)
-              end
-              
-            else
-              # there wasn't an event, so create an empty cell and container
-              cal << %(<td class="ec-event-cell ec-no-event-cell" )
-              cal << %(style="padding-top: #{options[:event_margin]}px;">)
-              cal << %(<div class="ec-event" )
-              cal << %(style="padding-top: #{options[:event_padding_top]}px; )
-              cal << %(height: #{options[:event_height] - options[:event_padding_top]}px;" )
-              cal << %(>)
-              cal << %(&nbsp;</div></td>)
-            end
-          end
-          cal << %(</tr>)
-        end
-        
-        cal << %(</tbody></table>)
-        cal << %(</div>)
-        
-        # increment the calendar row we are on, and the week
-        row_num += 1
-        first_day_of_week += 7
-        last_day_of_week += 7
-      end      
-    
-      cal << %(</div>)   
-      cal << %(</div>)
-      cal << %(</div>)
+
+      render :partial => "/calendar/#{options[:calendar_view]}_view", :locals => {:options => options, :block => block}
     end
-    
+
     # override this in your own helper for greater control
     def day_link(text, date, day_action)
       link_to(text, params.merge(:action => day_action, :day => date.day), :class => 'ec-day-link')
     end
-  
+
     private
-    
+
     # calculate the height of each row
     # by default, it will be the height option minus the day names height,
     # divided by the total number of calendar rows
@@ -275,11 +117,11 @@ module EventCalendar
       end
       row_heights
     end
-  
+
     #
     # helper methods for working with a calendar week
     #
-    
+
     def days_between(first, second)
       if first > second
         second + (7 - first)
@@ -287,17 +129,17 @@ module EventCalendar
         second - first
       end
     end
-  
+
     def beginning_of_week(date, start = 0)
       days_to_beg = days_between(start, date.wday)
       date - days_to_beg
     end
-    
+
     def end_of_week(date, start = 0)
       beg = beginning_of_week(date, start)
       beg + 6
     end
-  
+
     def weekend?(date)
       [0, 6].include?(date.wday)
     end
